@@ -1,0 +1,1 @@
+Implement specs/todo-scenario-3.md from IMPLEMENTATION_PLAN.md using the todo list. If a later todo unblocks an earlier one, reorder and renumber the todos in IMPLEMENTATION_PLAN.md so the prerequisite becomes T1 and the dependent task becomes T2. Complete only the active todo each time and let the planner decide when the run is complete.

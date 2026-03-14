@@ -1,0 +1,1 @@
+Implement specs/todo-scenario-1.md from IMPLEMENTATION_PLAN.md using the todo list. Complete only the active todo, verify the change, update the todo status in IMPLEMENTATION_PLAN.md, and let the planner decide when the run is complete.

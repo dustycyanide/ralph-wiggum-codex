@@ -1,0 +1,1 @@
+Implement specs/todo-scenario-5.md from IMPLEMENTATION_PLAN.md using the todo list. Complete only the active todo, but if the selected todo is no longer runnable when builder starts, log a temporary Builder Contract Issue, make no implementation artifact, and let the planner resolve it on the next pass.

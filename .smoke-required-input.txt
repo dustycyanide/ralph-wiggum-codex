@@ -1,0 +1,3 @@
+This repository now includes the required smoke input file.
+It provides a short note for the smoke summary to confirm the file exists
+and that summarization can proceed without blocking.

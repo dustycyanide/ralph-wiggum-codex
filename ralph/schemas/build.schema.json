@@ -7,8 +7,12 @@
     "done",
     "status",
     "summary",
+    "active_todo_id",
+    "todo_status",
     "next_objective",
     "plan_updates",
+    "issue_type",
+    "issue_detail",
     "confidence",
     "stop_reason"
   ],
@@ -28,6 +32,20 @@
       "type": "string",
       "minLength": 1
     },
+    "active_todo_id": {
+      "type": "string"
+    },
+    "todo_status": {
+      "type": "string",
+      "enum": [
+        "todo",
+        "in_progress",
+        "done",
+        "blocked",
+        "deferred",
+        "unknown"
+      ]
+    },
     "next_objective": {
       "type": "string"
     },
@@ -36,6 +54,12 @@
       "items": {
         "type": "string"
       }
+    },
+    "issue_type": {
+      "type": "string"
+    },
+    "issue_detail": {
+      "type": "string"
     },
     "confidence": {
       "type": "number",

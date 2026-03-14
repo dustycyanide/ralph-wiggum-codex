@@ -14,7 +14,7 @@ Run todo-driven smoke scenario 5 and confirm the builder logs a contract issue a
 ## Todo List
 
 ### T1
-- Status: done
+- Status: todo
 - Title: Create `docs/todo-scenario-5.md`
 - Depends on: none
 - Validation: `diff -u docs/todo-scenario-5.md <(printf '# Todo Scenario 5\n\nThis file should not be created because the builder contract guard should stop work.\n')`

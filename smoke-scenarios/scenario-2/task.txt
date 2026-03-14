@@ -1,0 +1,1 @@
+Implement specs/todo-scenario-2.md from IMPLEMENTATION_PLAN.md using the todo list. Mark blocked todos explicitly, reorder so the first runnable unfinished todo is first, complete only the active todo, and let the planner decide when to wait.

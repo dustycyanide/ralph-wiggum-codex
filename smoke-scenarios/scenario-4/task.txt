@@ -1,0 +1,1 @@
+Implement specs/todo-scenario-4.md from IMPLEMENTATION_PLAN.md using the todo list. Mark blocked todos explicitly, do not invent missing external input, and if no runnable todo exists then let the planner return waiting without invoking builder.

@@ -5,15 +5,27 @@
   "additionalProperties": false,
   "required": [
     "done",
+    "status",
     "summary",
     "build_objective",
+    "active_todo_id",
+    "active_todo_title",
     "completion_criteria",
+    "plan_updates",
     "confidence",
     "stop_reason"
   ],
   "properties": {
     "done": {
       "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "waiting",
+        "completed"
+      ]
     },
     "summary": {
       "type": "string",
@@ -22,12 +34,24 @@
     "build_objective": {
       "type": "string"
     },
+    "active_todo_id": {
+      "type": "string"
+    },
+    "active_todo_title": {
+      "type": "string"
+    },
     "completion_criteria": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "plan_updates": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     },
     "confidence": {
