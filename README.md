@@ -76,6 +76,24 @@ Run in background:
 
 The background command prints run directory, log file, and PID.
 
+## Smoke replay
+
+Reusable todo-driven smoke scenarios live under `smoke-scenarios/`.
+
+Run one:
+
+```bash
+./replay-smoke scenario-1
+```
+
+Run the full suite:
+
+```bash
+./replay-smoke all
+```
+
+These runs reseed `IMPLEMENTATION_PLAN.md`, clean only the scenario-owned artifacts, and write run outputs to `.ralph-runs/replays/`.
+
 ## Loop controls
 
 - `--loops`: max planner loops

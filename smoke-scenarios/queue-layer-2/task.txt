@@ -1,0 +1,1 @@
+Implement specs/queue-layer-2.md from IMPLEMENTATION_PLAN.md using the queue list. Before implementation, read the queue item's required context files, activate its required skills, report the actual context files read and skills activated, then complete only the active queue item and let the planner decide when the run is complete.

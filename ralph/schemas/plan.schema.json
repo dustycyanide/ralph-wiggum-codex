@@ -8,6 +8,8 @@
     "status",
     "summary",
     "build_objective",
+    "active_queue_id",
+    "active_queue_title",
     "active_todo_id",
     "active_todo_title",
     "completion_criteria",
@@ -32,6 +34,12 @@
       "minLength": 1
     },
     "build_objective": {
+      "type": "string"
+    },
+    "active_queue_id": {
+      "type": "string"
+    },
+    "active_queue_title": {
       "type": "string"
     },
     "active_todo_id": {

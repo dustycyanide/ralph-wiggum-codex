@@ -7,8 +7,11 @@
     "done",
     "status",
     "summary",
+    "active_queue_id",
     "active_todo_id",
     "todo_status",
+    "context_files_read",
+    "skills_activated",
     "next_objective",
     "plan_updates",
     "issue_type",
@@ -32,6 +35,9 @@
       "type": "string",
       "minLength": 1
     },
+    "active_queue_id": {
+      "type": "string"
+    },
     "active_todo_id": {
       "type": "string"
     },
@@ -45,6 +51,18 @@
         "deferred",
         "unknown"
       ]
+    },
+    "context_files_read": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "skills_activated": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "next_objective": {
       "type": "string"

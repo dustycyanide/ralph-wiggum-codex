@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="${SCRIPT_DIR}"
+SCENARIOS_DIR="${ROOT_DIR}/smoke-scenarios"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./replay-smoke <scenario-name|all> [--keep-run-dir]
+
+Examples:
+  ./replay-smoke scenario-1
+  ./replay-smoke scenario-5
+  ./replay-smoke all
+
+Behavior:
+  - Copies the scenario seed plan over IMPLEMENTATION_PLAN.md
+  - Removes only the files owned by that scenario before replay
+  - Runs ./ralph-loop with the saved task and low reasoning defaults
+  - Writes replay runs under .ralph-runs/replays/
+EOF
+}
+
+if [[ $# -lt 1 ]]; then
+  usage
+  exit 1
+fi
+
+KEEP_RUN_DIR=0
+if [[ "${*: -1}" == "--keep-run-dir" ]]; then
+  KEEP_RUN_DIR=1
+  set -- "${@:1:$(($# - 1))}"
+fi
+
+SELECTION="${1}"
+
+timestamp() {
+  date +"%Y%m%d-%H%M%S"
+}
+
+require_file() {
+  local path="$1"
+  if [[ ! -f "${path}" ]]; then
+    echo "Missing required file: ${path}" >&2
+    exit 1
+  fi
+}
+
+seed_plan() {
+  local scenario_dir="$1"
+  require_file "${scenario_dir}/IMPLEMENTATION_PLAN.seed.md"
+  cp "${scenario_dir}/IMPLEMENTATION_PLAN.seed.md" "${ROOT_DIR}/IMPLEMENTATION_PLAN.md"
+}
+
+clean_scenario_artifacts() {
+  local scenario="$1"
+  case "${scenario}" in
+    scenario-1)
+      rm -f "${ROOT_DIR}/docs/todo-scenario-1.md"
+      ;;
+    scenario-2)
+      rm -f \
+        "${ROOT_DIR}/docs/todo-scenario-2.md" \
+        "${ROOT_DIR}/docs/todo-scenario-2-summary.md" \
+        "${ROOT_DIR}/.todo-scenario-2-input.txt"
+      ;;
+    scenario-3)
+      rm -f \
+        "${ROOT_DIR}/docs/todo-scenario-3-phase-1.md" \
+        "${ROOT_DIR}/docs/todo-scenario-3-phase-2.md"
+      ;;
+    scenario-4)
+      rm -f \
+        "${ROOT_DIR}/docs/todo-scenario-4-a.md" \
+        "${ROOT_DIR}/docs/todo-scenario-4-b.md" \
+        "${ROOT_DIR}/.todo-scenario-4-input-a.txt" \
+        "${ROOT_DIR}/.todo-scenario-4-input-b.txt"
+      ;;
+    scenario-5)
+      rm -f "${ROOT_DIR}/docs/todo-scenario-5.md"
+      ;;
+    *)
+      echo "Unknown scenario for cleanup: ${scenario}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+scenario_loops() {
+  local scenario="$1"
+  case "${scenario}" in
+    scenario-1) echo 3 ;;
+    scenario-2) echo 4 ;;
+    scenario-3) echo 5 ;;
+    scenario-4) echo 3 ;;
+    scenario-5) echo 3 ;;
+    *)
+      echo "Unknown scenario: ${scenario}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+run_one() {
+  local scenario="$1"
+  local scenario_dir="${SCENARIOS_DIR}/${scenario}"
+  local task_file="${scenario_dir}/task.txt"
+  local run_dir_base="${ROOT_DIR}/.ralph-runs/replays"
+  local run_dir="${run_dir_base}/${scenario}-$(timestamp)"
+  local loops
+  local mutator_pid=""
+
+  require_file "${task_file}"
+  mkdir -p "${run_dir_base}"
+
+  echo "==> ${scenario}"
+  seed_plan "${scenario_dir}"
+  clean_scenario_artifacts "${scenario}"
+
+  loops="$(scenario_loops "${scenario}")"
+
+  if [[ "${scenario}" == "scenario-5" ]]; then
+    "${scenario_dir}/mutate-plan.sh" "${run_dir}/loop-01-planner.json" &
+    mutator_pid="$!"
+    "${ROOT_DIR}/ralph-loop" \
+      --run-dir "${run_dir}" \
+      --task "$(cat "${task_file}")" \
+      --loops "${loops}" \
+      --iterations 1 \
+      --sandbox workspace-write \
+      --plan-reasoning low \
+      --build-reasoning low \
+      --pause-before-builder-seconds 1
+  else
+    "${ROOT_DIR}/ralph-loop" \
+      --run-dir "${run_dir}" \
+      --task "$(cat "${task_file}")" \
+      --loops "${loops}" \
+      --iterations 1 \
+      --sandbox workspace-write \
+      --plan-reasoning low \
+      --build-reasoning low
+  fi
+
+  if [[ -n "${mutator_pid}" ]]; then
+    wait "${mutator_pid}"
+  fi
+
+  echo "Run directory: ${run_dir}"
+
+  if [[ "${KEEP_RUN_DIR}" -eq 0 ]]; then
+    :
+  fi
+}
+
+if [[ "${SELECTION}" == "all" ]]; then
+  for scenario in scenario-1 scenario-2 scenario-3 scenario-4 scenario-5; do
+    run_one "${scenario}"
+  done
+else
+  run_one "${SELECTION}"
+fi

@@ -7,7 +7,7 @@ Run queue layer 2 smoke scenario and confirm the builder follows structured cont
 ## Queue List
 
 ### Q1
-- Status: completed
+- Status: active
 - Title: Queue layer 2 context baseline
 - Execution Mode: strict
 - Planner Decision: strict
@@ -18,7 +18,7 @@ Run queue layer 2 smoke scenario and confirm the builder follows structured cont
 - Reversibility: easy
 
 #### T1
-- Status: done
+- Status: todo
 - Title: Create `docs/queue-layer-2.md`
 - Depends On Todos: none
 - Depends On Queues: none
@@ -50,14 +50,3 @@ Run queue layer 2 smoke scenario and confirm the builder follows structured cont
   - Reason: fallback if the queue item is underspecified
 - Blocker Type: none
 - Blocker Detail: none
-
-## Planner Execution State
-
-- Active Queue: none
-- Active Todo: none
-- Queue Order Decision: strict-first-unfinished (no reordering needed)
-- Actual Context Files Read:
-  - `IMPLEMENTATION_PLAN.md` (required, read_in_full)
-  - `specs/queue-layer-2.md` (required, read_in_full)
-- Actual Skills Activated:
-  - `09-implement-plan` (required)

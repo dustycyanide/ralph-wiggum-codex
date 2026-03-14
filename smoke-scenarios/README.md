@@ -6,6 +6,19 @@ Each scenario includes:
 
 - `IMPLEMENTATION_PLAN.seed.md`: the starting todo list and plan state
 - `task.txt`: the exact task text for `./ralph-loop --task`
+- optional helper scripts for scenario-specific setup (for example the contract mutator in `scenario-5`)
+
+## Replay Script
+
+Use the repo-level replay runner to reseed and execute a scenario:
+
+```bash
+./replay-smoke scenario-1
+./replay-smoke scenario-5
+./replay-smoke all
+```
+
+Replay runs are written under `.ralph-runs/replays/`.
 
 ## Replay Pattern
 
@@ -13,6 +26,8 @@ Each scenario includes:
 2. Ensure any scenario-specific target files are absent before the run.
 3. Run `./ralph-loop --task "$(cat smoke-scenarios/<scenario>/task.txt)" ...`.
 4. Review `.ralph-runs/<run>/state.json`, `result.json`, and the repo diff.
+
+The replay script automates steps 1-3.
 
 ## Recommended Flags
 

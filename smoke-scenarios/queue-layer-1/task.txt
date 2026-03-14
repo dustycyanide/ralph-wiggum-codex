@@ -1,0 +1,1 @@
+Implement specs/queue-layer-1.md from IMPLEMENTATION_PLAN.md using the queue list. Select an active queue and the first runnable queue item, complete only that item, verify the change, update the plan, and let the planner decide when the run is complete.

@@ -251,23 +251,33 @@ def planner_prompt(
 
         Instructions:
         0) Ignore unrelated workflow skills or ticketing routines; focus only on this goal.
-        1) Use IMPLEMENTATION_PLAN.md as the durable source of truth for the todo list.
-        2) Maintain a todo list whose items have ordered ids (T1, T2, ...) plus titles, statuses,
-           dependencies, validation, blocker type, and blocker detail.
-        3) Reorder the todo list in IMPLEMENTATION_PLAN.md so the first unfinished runnable todo is first.
-           If you reorder the list, renumber todo ids to match the new order so execution decisions are
-           stored durably in the plan itself.
-        4) If IMPLEMENTATION_PLAN.md contains a temporary "Builder Contract Issues" section, consume it,
+        1) Use IMPLEMENTATION_PLAN.md as the durable source of truth for the queue list and queue items.
+        2) Maintain an ordered queue list with ids (Q1, Q2, ...) and ordered todo ids within each queue
+           (T1, T2, ...).
+        3) Each queue should have at least: status, title, execution mode, planner decision, planner
+           decision reason, dependencies, completion rule, risk level, and reversibility.
+        4) Each queue item should have at least: status, title, dependencies, validation, blocker type,
+           blocker detail, structured context file descriptors, and structured skill descriptors.
+        5) Context file descriptors may include modes such as read_in_full, required, optional, or
+           conditional, plus trigger/reason notes for progressive disclosure. Skill descriptors may include
+           modes such as required, optional, or conditional, plus trigger/reason notes.
+        6) Under strict queue order, only the first unfinished queue may be active. Do not start later queues
+           while an earlier queue is unfinished unless the plan explicitly records a different planner decision.
+        7) Reorder queue items inside the active queue so the first unfinished runnable item is first.
+           If you reorder items, renumber todo ids to match the new order so execution decisions are stored
+           durably in the plan itself.
+        8) If IMPLEMENTATION_PLAN.md contains a temporary "Builder Contract Issues" section, consume it,
            convert it into planner-owned state if needed, and remove the section after resolving it.
-        5) Do not implement product work yourself. You may inspect files, run checks, and edit only
+        9) Do not implement product work yourself. You may inspect files, run checks, and edit only
            IMPLEMENTATION_PLAN.md while planning. Do not create or modify implementation artifacts.
-        6) If all todos are done, set status="completed" and done=true.
-        7) If at least one todo is runnable now, set status="ready", done=false, and provide the active
-           todo via active_todo_id, active_todo_title, and build_objective.
-        8) If unfinished todos remain but none are runnable, set status="waiting" and done=false.
-        9) completion_criteria should be a concrete checklist to evaluate global completion.
-        10) plan_updates should summarize any todo-list reordering or plan-file changes you made.
-        11) Use confidence between 0 and 1.
+        10) If all queues and queue items are done, set status="completed" and done=true.
+        11) If the active queue has at least one runnable item now, set status="ready", done=false, and
+            provide active_queue_id, active_queue_title, active_todo_id, active_todo_title, and build_objective.
+        12) If unfinished work remains but the active queue has no runnable item, set status="waiting" and
+            done=false.
+        13) completion_criteria should be a concrete checklist to evaluate global completion.
+        14) plan_updates should summarize any queue/item reordering or plan-file changes you made.
+        15) Use confidence between 0 and 1.
 
         Return JSON only, matching the provided schema.
         """
@@ -278,6 +288,8 @@ def builder_prompt(
     *,
     goal: str,
     objective: str,
+    active_queue_id: str,
+    active_queue_title: str,
     active_todo_id: str,
     active_todo_title: str,
     completion_criteria: list[str],
@@ -298,6 +310,10 @@ def builder_prompt(
         Objective for this implementation step:
         {objective}
 
+        Active queue selected by planner:
+        - id: {active_queue_id or "(none provided)"}
+        - title: {active_queue_title or "(none provided)"}
+
         Active todo selected by planner:
         - id: {active_todo_id or "(none provided)"}
         - title: {active_todo_title or "(none provided)"}
@@ -314,23 +330,33 @@ def builder_prompt(
 
         Instructions:
         0) Ignore unrelated workflow skills or ticketing routines; focus only on this goal.
-        1) Execute only the planner-selected todo. Do not choose a different todo yourself.
-        2) Before doing work, inspect IMPLEMENTATION_PLAN.md and verify the selected todo is still the first
-           runnable unfinished item.
-        3) If there is no runnable todo, no todos exist, all todos are already done, or the planner/builder
+        1) Execute only the planner-selected queue item in the planner-selected active queue.
+           Do not choose a different queue or item yourself.
+        2) Before doing work, inspect IMPLEMENTATION_PLAN.md and verify the selected queue is still active
+           and the selected todo is still the first runnable unfinished item in that queue.
+        3) Read the selected queue item's structured context file descriptors first. For descriptors marked
+           read_in_full or required, you must read the file before implementation. For optional or conditional
+           descriptors, read them only if their trigger condition applies.
+        4) Activate or follow the selected queue item's structured skill descriptors first. For skills marked
+           required, activate them before implementation. For optional or conditional skills, activate them only
+           if their trigger condition applies.
+        5) Report the actual context files read in context_files_read and the actual skills activated in
+           skills_activated.
+        6) If a required context file or required skill cannot be satisfied, treat that as a contract issue.
+        7) If there is no runnable todo, no todos exist, all todos are already done, or the planner/builder
            contract is invalid, do not implement anything. Instead add a short temporary
            "Builder Contract Issues" section to IMPLEMENTATION_PLAN.md, set issue_type and issue_detail,
            set status="blocked", and return.
-        4) Keep "Builder Contract Issues" only for contract-preventing issues. Do not log routine progress there.
-        5) Do not create a missing prerequisite unless the active todo explicitly says to create it, or the
+        8) Keep "Builder Contract Issues" only for contract-preventing issues. Do not log routine progress there.
+        9) Do not create a missing prerequisite unless the active todo explicitly says to create it, or the
            missing prerequisite already exists as another todo in IMPLEMENTATION_PLAN.md.
-        6) Run relevant checks/tests for the files you touched.
-        7) Keep IMPLEMENTATION_PLAN.md up to date with progress on the active todo.
-        8) If the active todo is complete, set status="completed" and todo_status="done".
-        9) If the active todo is blocked by a real dependency or missing required input, set status="blocked"
+        10) Run relevant checks/tests for the files you touched.
+        11) Keep IMPLEMENTATION_PLAN.md up to date with progress on the active todo.
+        12) If the active todo is complete, set status="completed" and todo_status="done".
+        13) If the active todo is blocked by a real dependency or missing required input, set status="blocked"
            and todo_status="blocked".
-        10) Otherwise set status="in_progress" and provide a clear next_objective for the same active todo.
-        11) Keep stop_reason concise and explicit.
+        14) Otherwise set status="in_progress" and provide a clear next_objective for the same active todo.
+        15) Keep stop_reason concise and explicit.
 
         Return JSON only, matching the provided schema.
         """
@@ -630,6 +656,8 @@ def run_loop(args: argparse.Namespace, task: str, run_dir: Path) -> int:
         if not current_objective:
             current_objective = "Make measurable progress toward the global goal."
 
+        active_queue_id = str(plan_response.get("active_queue_id") or "").strip()
+        active_queue_title = str(plan_response.get("active_queue_title") or "").strip()
         active_todo_id = str(plan_response.get("active_todo_id") or "").strip()
         active_todo_title = str(plan_response.get("active_todo_title") or "").strip()
 
@@ -649,6 +677,8 @@ def run_loop(args: argparse.Namespace, task: str, run_dir: Path) -> int:
             step_prompt = builder_prompt(
                 goal=task,
                 objective=current_objective,
+                active_queue_id=active_queue_id,
+                active_queue_title=active_queue_title,
                 active_todo_id=active_todo_id,
                 active_todo_title=active_todo_title,
                 completion_criteria=criteria,
@@ -719,6 +749,7 @@ def run_loop(args: argparse.Namespace, task: str, run_dir: Path) -> int:
                         "timestamp": utc_now_iso(),
                         "loop": loop_idx,
                         "iteration": iter_idx,
+                        "active_queue_id": active_queue_id,
                         "active_todo_id": str(build_response.get("active_todo_id") or active_todo_id),
                         "status": status,
                         "todo_status": str(build_response.get("todo_status") or ""),
