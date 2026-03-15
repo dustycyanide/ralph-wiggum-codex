@@ -1,0 +1,4 @@
+docs/todo-scenario-4-a.md
+docs/todo-scenario-4-b.md
+.todo-scenario-4-input-a.txt
+.todo-scenario-4-input-b.txt

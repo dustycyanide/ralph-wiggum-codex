@@ -1,0 +1,1 @@
+Implement Q1/T1 from IMPLEMENTATION_PLAN.md. Read queue shared context first, then item context, report the merged read list in order, activate the shared required skill, and create docs/queue-layer-4.md exactly as specified.

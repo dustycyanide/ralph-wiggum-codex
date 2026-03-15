@@ -1,0 +1,1 @@
+Review IMPLEMENTATION_PLAN.md, keep work scoped to feature F1, promote Q2 after Q1, implement only Q2/T1, and mark F1 completed once both queues are done.

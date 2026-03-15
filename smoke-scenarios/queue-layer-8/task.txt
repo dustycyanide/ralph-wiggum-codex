@@ -1,0 +1,1 @@
+Implement Q1/T1 from IMPLEMENTATION_PLAN.md. Keep the plan declarative by removing runtime-audit sections, report runtime facts only in builder JSON, and create docs/queue-layer-8.md exactly as specified.

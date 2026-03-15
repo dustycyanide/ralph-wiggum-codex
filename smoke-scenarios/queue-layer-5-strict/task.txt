@@ -1,0 +1,1 @@
+Review IMPLEMENTATION_PLAN.md and keep the queue and Q1/T1 strict if external input is missing. Do not invent the missing input. Return waiting without invoking the builder.

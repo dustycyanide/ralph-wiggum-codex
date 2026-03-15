@@ -1,0 +1,1 @@
+Review IMPLEMENTATION_PLAN.md and, if the only blocker is sequencing while risk is low and reversibility is easy, mark the queue and Q1/T1 optimistic durably, then implement only Q1/T1 and create docs/queue-layer-5-optimistic.md exactly as specified.

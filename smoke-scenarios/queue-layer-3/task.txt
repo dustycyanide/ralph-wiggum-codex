@@ -1,0 +1,1 @@
+Implement Q1/T1 from IMPLEMENTATION_PLAN.md. Read only the required context descriptors first, skip any conditional descriptor whose trigger is absent, report only the context descriptor paths actually read, activate the required skill, and create docs/queue-layer-3.md exactly as specified.

@@ -2,22 +2,13 @@
 
 ## Goal
 
-Run queue layer 10 smoke scenario and confirm feature-level grouping stays above queue-item execution.
-
-## Feature List
-
-### F1
-- Status: completed
-- Title: Feature grouping baseline
-- Depends On Features: none
-- Completion Rule: all_queues_done
-- Queues: Q1, Q2
+Run queue layer 7 smoke scenario and confirm the next queued queue is promoted before builder selection.
 
 ## Queue List
 
 ### Q1
 - Status: completed
-- Title: First queue already complete
+- Title: Already completed queue
 - Execution Mode: strict
 - Planner Decision: strict
 - Planner Decision Reason: Already complete.
@@ -28,8 +19,6 @@ Run queue layer 10 smoke scenario and confirm feature-level grouping stays above
 - Reversibility: easy
 - Promotion Mode: strict_sequence
 - Promotion Reason: Already satisfied.
-- Shared Context Files: none
-- Shared Skills: none
 
 #### T1
 - Status: done
@@ -45,43 +34,38 @@ Run queue layer 10 smoke scenario and confirm feature-level grouping stays above
 - Blocker Detail: none
 - Side Effect Level: low
 - Reversibility: easy
-- Structured Context Files: none
-- Structured Skills: none
 
 ### Q2
-- Status: completed
-- Title: Second queue under same feature
+- Status: queued
+- Title: Promotion target queue
 - Execution Mode: strict
 - Planner Decision: strict
-- Planner Decision Reason: Q1 completed; promote Q2 under strict sequence.
+- Planner Decision Reason: Wait for Q1 completion.
 - Depends On Queues: Q1
 - Completion Rule: all_todos_done
 - Risk Level: low
 - Side Effect Level: low
 - Reversibility: easy
 - Promotion Mode: strict_sequence
-- Promotion Reason: Promoted after Q1 completion per strict sequence.
-- Shared Context Files: none
-- Shared Skills: none
+- Promotion Reason: Promote once Q1 is done.
 
 #### T1
-- Status: done
-- Title: Create `docs/queue-layer-10.md`
+- Status: todo
+- Title: Create `docs/queue-layer-7.md`
 - Execution Mode: strict
 - Planner Decision: strict
-- Planner Decision Reason: Active queue item; ready to execute.
+- Planner Decision Reason: Await queue promotion.
 - Depends On Todos: none
 - Depends On Queues: Q1
 - Unlocks: none
-- Validation: `diff -u docs/queue-layer-10.md <(printf '# Queue Layer 10\n\nThis file confirms the feature wrapper stayed above queue-item execution.\n')`
-- Blocker Type: none
-- Blocker Detail: none
-- Side Effect Level: low
-- Reversibility: easy
-- Structured Context Files:
-  - Path: `specs/queue-layer-10-feature.md`
+- Validation: `diff -u docs/queue-layer-7.md <(printf '# Queue Layer 7\n\nThis file confirms the planner promoted Q2 before building.\n')`
+- Context Files:
+  - Path: `specs/queue-layer-7-promotion.md`
   - Mode: read_in_full
   - Requirement: required
   - Trigger: always
   - Reason: exact output contract
-- Structured Skills: none
+- Blocker Type: sequencing
+- Blocker Detail: Wait for queue promotion after Q1 is done.
+- Side Effect Level: low
+- Reversibility: easy

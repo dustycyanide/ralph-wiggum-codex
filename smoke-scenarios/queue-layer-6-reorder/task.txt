@@ -1,0 +1,1 @@
+Review IMPLEMENTATION_PLAN.md, reorder queue items when a later item unlocks an earlier dependent item, renumber durably, then implement only the first runnable item and create docs/queue-layer-6-a.md exactly as specified.

@@ -6,7 +6,11 @@ Each scenario includes:
 
 - `IMPLEMENTATION_PLAN.seed.md`: the starting todo list and plan state
 - `task.txt`: the exact task text for `./ralph-loop --task`
-- optional helper scripts for scenario-specific setup (for example the contract mutator in `scenario-5`)
+- optional `cleanup-paths.txt`: repo-relative artifacts to remove before replay
+- optional `loops.txt`: planner loop budget for the scenario
+- optional `prepare.sh`: setup hook run before replay
+- optional `mutate-plan.sh`: hook run after the first planner output appears
+- optional `validate.sh`: assertion script run after the replay finishes
 
 ## Replay Script
 
@@ -19,6 +23,22 @@ Use the repo-level replay runner to reseed and execute a scenario:
 ```
 
 Replay runs are written under `.ralph-runs/replays/`.
+
+Replay defaults are optimized for speed:
+
+- planner model: `gpt-5.2-codex`
+- builder model: `gpt-5.2-codex`
+- reasoning: `low`
+
+Override them with:
+
+```bash
+RALPH_REPLAY_PLAN_MODEL=gpt-5.3-codex \
+RALPH_REPLAY_BUILD_MODEL=gpt-5.2-codex \
+RALPH_REPLAY_PLAN_REASONING=low \
+RALPH_REPLAY_BUILD_REASONING=low \
+./replay-smoke queue-layer-3
+```
 
 ## Replay Pattern
 

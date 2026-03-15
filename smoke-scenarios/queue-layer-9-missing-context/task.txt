@@ -1,0 +1,1 @@
+Review IMPLEMENTATION_PLAN.md and attempt Q1/T1. A required context file will disappear after planning. The builder must block, make no implementation change, log the contract issue, and the next planner pass should update T1 blocker metadata to mention the missing required context file.

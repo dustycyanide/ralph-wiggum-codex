@@ -4,6 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${SCRIPT_DIR}"
 SCENARIOS_DIR="${ROOT_DIR}/smoke-scenarios"
+REPLAY_PLAN_MODEL="${RALPH_REPLAY_PLAN_MODEL:-gpt-5.2-codex}"
+REPLAY_BUILD_MODEL="${RALPH_REPLAY_BUILD_MODEL:-gpt-5.2-codex}"
+REPLAY_PLAN_REASONING="${RALPH_REPLAY_PLAN_REASONING:-low}"
+REPLAY_BUILD_REASONING="${RALPH_REPLAY_BUILD_REASONING:-low}"
 
 usage() {
   cat <<'EOF'
@@ -17,8 +21,9 @@ Examples:
 
 Behavior:
   - Copies the scenario seed plan over IMPLEMENTATION_PLAN.md
-  - Removes only the files owned by that scenario before replay
-  - Runs ./ralph-loop with the saved task and low reasoning defaults
+  - Removes only the files listed by that scenario before replay
+  - Runs ./ralph-loop with replay-optimized model defaults
+  - Runs an optional scenario validation script after replay
   - Writes replay runs under .ralph-runs/replays/
 EOF
 }
@@ -48,6 +53,16 @@ require_file() {
   fi
 }
 
+list_scenarios() {
+  local path
+
+  for path in "${SCENARIOS_DIR}"/*; do
+    if [[ -d "${path}" ]]; then
+      basename "${path}"
+    fi
+  done | sort
+}
+
 seed_plan() {
   local scenario_dir="$1"
   require_file "${scenario_dir}/IMPLEMENTATION_PLAN.seed.md"
@@ -55,52 +70,67 @@ seed_plan() {
 }
 
 clean_scenario_artifacts() {
-  local scenario="$1"
-  case "${scenario}" in
-    scenario-1)
-      rm -f "${ROOT_DIR}/docs/todo-scenario-1.md"
-      ;;
-    scenario-2)
-      rm -f \
-        "${ROOT_DIR}/docs/todo-scenario-2.md" \
-        "${ROOT_DIR}/docs/todo-scenario-2-summary.md" \
-        "${ROOT_DIR}/.todo-scenario-2-input.txt"
-      ;;
-    scenario-3)
-      rm -f \
-        "${ROOT_DIR}/docs/todo-scenario-3-phase-1.md" \
-        "${ROOT_DIR}/docs/todo-scenario-3-phase-2.md"
-      ;;
-    scenario-4)
-      rm -f \
-        "${ROOT_DIR}/docs/todo-scenario-4-a.md" \
-        "${ROOT_DIR}/docs/todo-scenario-4-b.md" \
-        "${ROOT_DIR}/.todo-scenario-4-input-a.txt" \
-        "${ROOT_DIR}/.todo-scenario-4-input-b.txt"
-      ;;
-    scenario-5)
-      rm -f "${ROOT_DIR}/docs/todo-scenario-5.md"
-      ;;
-    *)
-      echo "Unknown scenario for cleanup: ${scenario}" >&2
-      exit 1
-      ;;
-  esac
+  local scenario_dir="$1"
+  local cleanup_file="${scenario_dir}/cleanup-paths.txt"
+  local relative_path=""
+
+  if [[ ! -f "${cleanup_file}" ]]; then
+    return 0
+  fi
+
+  while IFS= read -r relative_path || [[ -n "${relative_path}" ]]; do
+    if [[ -z "${relative_path}" || "${relative_path}" == \#* ]]; then
+      continue
+    fi
+    rm -rf "${ROOT_DIR}/${relative_path}"
+  done < "${cleanup_file}"
 }
 
 scenario_loops() {
-  local scenario="$1"
-  case "${scenario}" in
-    scenario-1) echo 3 ;;
-    scenario-2) echo 4 ;;
-    scenario-3) echo 5 ;;
-    scenario-4) echo 3 ;;
-    scenario-5) echo 3 ;;
-    *)
-      echo "Unknown scenario: ${scenario}" >&2
-      exit 1
-      ;;
-  esac
+  local scenario_dir="$1"
+  local loops_file="${scenario_dir}/loops.txt"
+
+  if [[ -f "${loops_file}" ]]; then
+    tr -d '[:space:]' < "${loops_file}"
+    return 0
+  fi
+
+  echo 2
+}
+
+scenario_iterations() {
+  local scenario_dir="$1"
+  local iterations_file="${scenario_dir}/iterations.txt"
+
+  if [[ -f "${iterations_file}" ]]; then
+    tr -d '[:space:]' < "${iterations_file}"
+    return 0
+  fi
+
+  echo 1
+}
+
+run_validation() {
+  local scenario_dir="$1"
+  local run_dir="$2"
+  local validate_script="${scenario_dir}/validate.sh"
+
+  if [[ ! -f "${validate_script}" ]]; then
+    return 0
+  fi
+
+  bash "${validate_script}" "${ROOT_DIR}" "${run_dir}" "${scenario_dir}"
+}
+
+run_prepare() {
+  local scenario_dir="$1"
+  local prepare_script="${scenario_dir}/prepare.sh"
+
+  if [[ ! -f "${prepare_script}" ]]; then
+    return 0
+  fi
+
+  bash "${prepare_script}" "${ROOT_DIR}" "${scenario_dir}"
 }
 
 run_one() {
@@ -110,43 +140,62 @@ run_one() {
   local run_dir_base="${ROOT_DIR}/.ralph-runs/replays"
   local run_dir="${run_dir_base}/${scenario}-$(timestamp)"
   local loops
+  local iterations
   local mutator_pid=""
+  local loop_exit_code=0
 
   require_file "${task_file}"
   mkdir -p "${run_dir_base}"
 
   echo "==> ${scenario}"
   seed_plan "${scenario_dir}"
-  clean_scenario_artifacts "${scenario}"
+  clean_scenario_artifacts "${scenario_dir}"
+  run_prepare "${scenario_dir}"
 
-  loops="$(scenario_loops "${scenario}")"
+  loops="$(scenario_loops "${scenario_dir}")"
+  iterations="$(scenario_iterations "${scenario_dir}")"
 
-  if [[ "${scenario}" == "scenario-5" ]]; then
-    "${scenario_dir}/mutate-plan.sh" "${run_dir}/loop-01-planner.json" &
+  set +e
+  if [[ -f "${scenario_dir}/mutate-plan.sh" ]]; then
+    bash "${scenario_dir}/mutate-plan.sh" "${run_dir}/loop-01-planner.json" &
     mutator_pid="$!"
     "${ROOT_DIR}/ralph-loop" \
       --run-dir "${run_dir}" \
       --task "$(cat "${task_file}")" \
       --loops "${loops}" \
-      --iterations 1 \
+      --iterations "${iterations}" \
       --sandbox workspace-write \
-      --plan-reasoning low \
-      --build-reasoning low \
+      --plan-model "${REPLAY_PLAN_MODEL}" \
+      --build-model "${REPLAY_BUILD_MODEL}" \
+      --plan-reasoning "${REPLAY_PLAN_REASONING}" \
+      --build-reasoning "${REPLAY_BUILD_REASONING}" \
       --pause-before-builder-seconds 1
+    loop_exit_code=$?
   else
     "${ROOT_DIR}/ralph-loop" \
       --run-dir "${run_dir}" \
       --task "$(cat "${task_file}")" \
       --loops "${loops}" \
-      --iterations 1 \
+      --iterations "${iterations}" \
       --sandbox workspace-write \
-      --plan-reasoning low \
-      --build-reasoning low
+      --plan-model "${REPLAY_PLAN_MODEL}" \
+      --build-model "${REPLAY_BUILD_MODEL}" \
+      --plan-reasoning "${REPLAY_PLAN_REASONING}" \
+      --build-reasoning "${REPLAY_BUILD_REASONING}"
+    loop_exit_code=$?
+  fi
+  set -e
+
+  if [[ "${loop_exit_code}" -ne 0 && "${loop_exit_code}" -ne 2 ]]; then
+    echo "Replay command failed with exit code ${loop_exit_code}" >&2
+    exit "${loop_exit_code}"
   fi
 
   if [[ -n "${mutator_pid}" ]]; then
     wait "${mutator_pid}"
   fi
+
+  run_validation "${scenario_dir}" "${run_dir}"
 
   echo "Run directory: ${run_dir}"
 
@@ -156,7 +205,7 @@ run_one() {
 }
 
 if [[ "${SELECTION}" == "all" ]]; then
-  for scenario in scenario-1 scenario-2 scenario-3 scenario-4 scenario-5; do
+  for scenario in $(list_scenarios); do
     run_one "${scenario}"
   done
 else

@@ -1,0 +1,1 @@
+Review IMPLEMENTATION_PLAN.md, promote Q2 to active because Q1 is already done, then implement only Q2/T1 and create docs/queue-layer-7.md exactly as specified.

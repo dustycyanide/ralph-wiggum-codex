@@ -213,10 +213,15 @@ def format_history(events: list[dict[str, Any]], limit: int = 10) -> str:
             continue
         if kind == "builder":
             response = event.get("response", {})
+            issue_type = response.get("issue_type") or ""
+            issue_detail = response.get("issue_detail") or ""
+            issue_suffix = ""
+            if issue_type or issue_detail:
+                issue_suffix = f" | issue={issue_type or '(unspecified)'}: {issue_detail}"
             rendered.append(
                 f"- builder loop {event.get('loop')} iter {event.get('iteration')}: "
                 f"status={response.get('status')} done={response.get('done')} | "
-                f"summary={response.get('summary', '')}"
+                f"summary={response.get('summary', '')}{issue_suffix}"
             )
             continue
         if kind == "error":
@@ -251,33 +256,59 @@ def planner_prompt(
 
         Instructions:
         0) Ignore unrelated workflow skills or ticketing routines; focus only on this goal.
-        1) Use IMPLEMENTATION_PLAN.md as the durable source of truth for the queue list and queue items.
-        2) Maintain an ordered queue list with ids (Q1, Q2, ...) and ordered todo ids within each queue
-           (T1, T2, ...).
-        3) Each queue should have at least: status, title, execution mode, planner decision, planner
-           decision reason, dependencies, completion rule, risk level, and reversibility.
-        4) Each queue item should have at least: status, title, dependencies, validation, blocker type,
-           blocker detail, structured context file descriptors, and structured skill descriptors.
-        5) Context file descriptors may include modes such as read_in_full, required, optional, or
-           conditional, plus trigger/reason notes for progressive disclosure. Skill descriptors may include
-           modes such as required, optional, or conditional, plus trigger/reason notes.
-        6) Under strict queue order, only the first unfinished queue may be active. Do not start later queues
+        1) Use IMPLEMENTATION_PLAN.md as the durable source of truth for the feature list, queue list,
+           and queue items.
+        2) Maintain an ordered feature list with ids (F1, F2, ...), an ordered queue list with ids
+           (Q1, Q2, ...), and ordered todo ids within each queue (T1, T2, ...).
+        3) Each feature should have at least: status, title, depends on features, completion rule,
+           and the queues it owns.
+        4) Each queue should have at least: status, title, execution mode (strict | optimistic |
+           planner_decides), planner decision (strict | optimistic), planner decision reason, dependencies,
+           completion rule, risk level, side effect level (low | medium | high), reversibility
+           (easy | moderate | hard), promotion mode (strict_sequence | planner_decides), promotion reason,
+           shared context file descriptors, and shared skill descriptors.
+        5) Each queue item should have at least: status, title, execution mode (strict | optimistic |
+           planner_decides), planner decision (strict | optimistic), planner decision reason, dependencies,
+           unlocks, validation, blocker type, blocker detail, side effect level (low | medium | high),
+           reversibility (easy | moderate | hard), structured context file descriptors, and structured
+           skill descriptors.
+        6) Context file descriptors must use this shape: path, mode (read_in_full | skim | inspect_if_needed),
+           requirement (required | optional | conditional), trigger, and reason. Skill descriptors must use
+           this shape: name, mode (required | optional | conditional), trigger, and reason.
+           If a field is absent, preserve the existing intent and use none/empty rather than inventing new
+           required context or skills. Only add required descriptors when the plan, spec, or recent contract
+           issues explicitly justify them.
+        7) Under strict queue order, only the first unfinished queue may be active. Do not start later queues
            while an earlier queue is unfinished unless the plan explicitly records a different planner decision.
-        7) Reorder queue items inside the active queue so the first unfinished runnable item is first.
+           When an earlier queue is complete and the next queue is queued, promote that next queue to active
+           if its promotion mode allows it, and record the promotion reason durably in the plan.
+           Promotion must not pre-mark the promoted queue or its todos as completed/done before the builder runs.
+        8) Reorder queue items inside the active queue so the first unfinished runnable item is first.
            If you reorder items, renumber todo ids to match the new order so execution decisions are stored
            durably in the plan itself.
-        8) If IMPLEMENTATION_PLAN.md contains a temporary "Builder Contract Issues" section, consume it,
-           convert it into planner-owned state if needed, and remove the section after resolving it.
-        9) Do not implement product work yourself. You may inspect files, run checks, and edit only
+           Use Depends On Todos, Depends On Queues, and Unlocks to make the ordering explainable.
+        9) If a queue or item uses execution mode planner_decides, you may mark it optimistic only when the
+           remaining blocker is sequencing-only and the work has side effect level low and reversibility easy.
+           Missing external input, missing required context, or medium/high side effects must remain strict
+           and blocked.
+           Record the final planner decision and reason durably in IMPLEMENTATION_PLAN.md.
+        10) Keep IMPLEMENTATION_PLAN.md declarative and durable. Do not create or preserve runtime audit
+           sections such as "Planner Execution State", "Actual Context Files Read", "Actual Skills Activated",
+           or "Builder Contract Issues". Use recent event history and run artifacts for runtime facts instead.
+           If a recent builder event reports a contract issue that is still relevant, consume it into durable
+           blocker metadata on the affected queue/item instead of leaving it only as runtime history.
+        11) Do not implement product work yourself. You may inspect files, run checks, and edit only
            IMPLEMENTATION_PLAN.md while planning. Do not create or modify implementation artifacts.
-        10) If all queues and queue items are done, set status="completed" and done=true.
-        11) If the active queue has at least one runnable item now, set status="ready", done=false, and
+        12) Mark a feature completed only when all queues it owns are completed. Builder execution must still
+           operate only at queue/item granularity, never at feature granularity.
+        13) If all features, queues, and queue items are done, set status="completed" and done=true.
+        14) If the active queue has at least one runnable item now, set status="ready", done=false, and
             provide active_queue_id, active_queue_title, active_todo_id, active_todo_title, and build_objective.
-        12) If unfinished work remains but the active queue has no runnable item, set status="waiting" and
+        15) If unfinished work remains but the active queue has no runnable item, set status="waiting" and
             done=false.
-        13) completion_criteria should be a concrete checklist to evaluate global completion.
-        14) plan_updates should summarize any queue/item reordering or plan-file changes you made.
-        15) Use confidence between 0 and 1.
+        16) completion_criteria should be a concrete checklist to evaluate global completion.
+        17) plan_updates should summarize any feature/queue/item reordering or plan-file changes you made.
+        18) Use confidence between 0 and 1.
 
         Return JSON only, matching the provided schema.
         """
@@ -334,20 +365,26 @@ def builder_prompt(
            Do not choose a different queue or item yourself.
         2) Before doing work, inspect IMPLEMENTATION_PLAN.md and verify the selected queue is still active
            and the selected todo is still the first runnable unfinished item in that queue.
-        3) Read the selected queue item's structured context file descriptors first. For descriptors marked
-           read_in_full or required, you must read the file before implementation. For optional or conditional
-           descriptors, read them only if their trigger condition applies.
-        4) Activate or follow the selected queue item's structured skill descriptors first. For skills marked
-           required, activate them before implementation. For optional or conditional skills, activate them only
-           if their trigger condition applies.
-        5) Report the actual context files read in context_files_read and the actual skills activated in
-           skills_activated.
+        3) Read queue-level shared context file descriptors first, then read item-level context file
+           descriptors. A context descriptor has: path, mode, requirement, trigger, and reason. For
+           descriptors marked read_in_full or required, you must read the file before implementation.
+           For optional or conditional descriptors, read them only if their trigger condition actually
+           applies. If the trigger is absent, do not read or report that file. Item-level context may extend
+           shared context, but it must not silently remove a required shared descriptor.
+        4) Activate or follow queue-level shared skill descriptors first, then item-level skill descriptors.
+           A skill descriptor has: name, mode, trigger, and reason. For skills marked required, activate
+           them before implementation. For optional or conditional skills, activate them only if their trigger
+           condition actually applies. Item-level skills may extend shared skills, but they must not silently
+           remove a required shared skill.
+        5) Report only the declared shared/item context descriptor paths you actually read in
+           context_files_read, in the order read. Do not include skill files or unrelated exploration there.
+           Report only skill names actually activated in skills_activated.
         6) If a required context file or required skill cannot be satisfied, treat that as a contract issue.
         7) If there is no runnable todo, no todos exist, all todos are already done, or the planner/builder
-           contract is invalid, do not implement anything. Instead add a short temporary
-           "Builder Contract Issues" section to IMPLEMENTATION_PLAN.md, set issue_type and issue_detail,
-           set status="blocked", and return.
-        8) Keep "Builder Contract Issues" only for contract-preventing issues. Do not log routine progress there.
+           contract is invalid, do not implement anything. Set issue_type and issue_detail, set status="blocked",
+           and return. Do not add runtime audit or contract sections to IMPLEMENTATION_PLAN.md.
+        8) Keep IMPLEMENTATION_PLAN.md limited to durable queue/item metadata, blockers, ordering, and
+           progress. Put runtime facts only in the builder response and run artifacts.
         9) Do not create a missing prerequisite unless the active todo explicitly says to create it, or the
            missing prerequisite already exists as another todo in IMPLEMENTATION_PLAN.md.
         10) Run relevant checks/tests for the files you touched.

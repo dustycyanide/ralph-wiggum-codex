@@ -7,7 +7,7 @@ Run queue layer 10 smoke scenario and confirm feature-level grouping stays above
 ## Feature List
 
 ### F1
-- Status: completed
+- Status: active
 - Title: Feature grouping baseline
 - Depends On Features: none
 - Completion Rule: all_queues_done
@@ -28,8 +28,6 @@ Run queue layer 10 smoke scenario and confirm feature-level grouping stays above
 - Reversibility: easy
 - Promotion Mode: strict_sequence
 - Promotion Reason: Already satisfied.
-- Shared Context Files: none
-- Shared Skills: none
 
 #### T1
 - Status: done
@@ -45,43 +43,38 @@ Run queue layer 10 smoke scenario and confirm feature-level grouping stays above
 - Blocker Detail: none
 - Side Effect Level: low
 - Reversibility: easy
-- Structured Context Files: none
-- Structured Skills: none
 
 ### Q2
-- Status: completed
+- Status: queued
 - Title: Second queue under same feature
 - Execution Mode: strict
 - Planner Decision: strict
-- Planner Decision Reason: Q1 completed; promote Q2 under strict sequence.
+- Planner Decision Reason: Wait for Q1 completion.
 - Depends On Queues: Q1
 - Completion Rule: all_todos_done
 - Risk Level: low
 - Side Effect Level: low
 - Reversibility: easy
 - Promotion Mode: strict_sequence
-- Promotion Reason: Promoted after Q1 completion per strict sequence.
-- Shared Context Files: none
-- Shared Skills: none
+- Promotion Reason: Promote once Q1 is done.
 
 #### T1
-- Status: done
+- Status: todo
 - Title: Create `docs/queue-layer-10.md`
 - Execution Mode: strict
 - Planner Decision: strict
-- Planner Decision Reason: Active queue item; ready to execute.
+- Planner Decision Reason: Await queue promotion.
 - Depends On Todos: none
 - Depends On Queues: Q1
 - Unlocks: none
 - Validation: `diff -u docs/queue-layer-10.md <(printf '# Queue Layer 10\n\nThis file confirms the feature wrapper stayed above queue-item execution.\n')`
-- Blocker Type: none
-- Blocker Detail: none
-- Side Effect Level: low
-- Reversibility: easy
-- Structured Context Files:
+- Context Files:
   - Path: `specs/queue-layer-10-feature.md`
   - Mode: read_in_full
   - Requirement: required
   - Trigger: always
   - Reason: exact output contract
-- Structured Skills: none
+- Blocker Type: sequencing
+- Blocker Detail: Wait for Q2 promotion after Q1.
+- Side Effect Level: low
+- Reversibility: easy
